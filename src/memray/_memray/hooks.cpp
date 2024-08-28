@@ -2,11 +2,41 @@
 #include <cstdio>
 #include <mutex>
 #include <unordered_set>
+#include <execinfo.h>
+#include <iostream>
+#include <exception>
+#include <cstdlib>
 
 #include "hooks.h"
 #include "tracking_api.h"
 
 namespace memray::hooks {
+
+namespace {
+void should_ignore_stack() {
+    const int max_frames = 100;
+    void* addrlist[max_frames + 1];
+
+    // Retrieve current stack addresses
+    int addrlen = backtrace(addrlist, sizeof(addrlist) / sizeof(void*));
+
+    if (addrlen == 0) {
+        return false;
+    }
+
+    // Convert addresses into readable strings
+    char** symbollist = backtrace_symbols(addrlist, addrlen);
+
+    // Print out the stack trace
+    for (int i = 0; i < addrlen; i++) {
+        std::cout << symbollist[i] << std::endl;
+    }
+
+    free(symbollist);
+
+    return false;
+}
+}
 
 #if defined(__linux__)
 int
@@ -235,12 +265,14 @@ void*
 mmap(void* addr, size_t length, int prot, int flags, int fd, off_t offset) noexcept
 {
     assert(MEMRAY_ORIG(mmap));
+
+    bool should_ignore_stack = (addr == NULL || addr == nullptr || should_ignore_stack());
     void* ptr;
     {
         tracking_api::RecursionGuard guard;
         ptr = MEMRAY_ORIG(mmap)(addr, length, prot, flags, fd, offset);
     }
-    if (ptr != MAP_FAILED) {
+    if (ptr != MAP_FAILED && !should_ignore_stack) {
         tracking_api::Tracker::trackAllocation(ptr, length, hooks::Allocator::MMAP);
     }
     return ptr;
@@ -251,12 +283,14 @@ void*
 mmap64(void* addr, size_t length, int prot, int flags, int fd, off64_t offset) noexcept
 {
     assert(MEMRAY_ORIG(mmap64));
+
+    bool should_ignore_stack = (addr == NULL || addr == nullptr || should_ignore_stack());
     void* ptr;
     {
         tracking_api::RecursionGuard guard;
         ptr = MEMRAY_ORIG(mmap64)(addr, length, prot, flags, fd, offset);
     }
-    if (ptr != MAP_FAILED) {
+    if (ptr != MAP_FAILED && !should_ignore_stack) {
         tracking_api::Tracker::trackAllocation(ptr, length, hooks::Allocator::MMAP);
     }
     return ptr;
