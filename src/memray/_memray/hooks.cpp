@@ -12,36 +12,6 @@
 
 namespace memray::hooks {
 
-namespace {
-void should_ignore_stack() {
-    const int max_frames = 100;
-    void* addrlist[max_frames + 1];
-
-    // Retrieve current stack addresses
-    int addrlen = backtrace(addrlist, sizeof(addrlist) / sizeof(void*));
-
-    if (addrlen == 0) {
-        return false;
-    }
-
-    // Convert addresses into readable strings
-    char** symbollist = backtrace_symbols(addrlist, addrlen);
-
-    bool ignore = false;
-    // Print out the stack trace
-    for (int i = 0; i < addrlen; i++) {
-        std::string symbol(symbollist[i]);
-        // std::cout << symbol << std::endl;
-        if (symbol.find("PyEval_EvalFrameDefault") != std::string::npos) {
-            ignore = true;
-            break;
-        }
-    }
-
-    free(symbollist);
-    return ignore;
-}
-}
 
 #if defined(__linux__)
 int
@@ -140,6 +110,38 @@ ensureAllHooksAreValid()
 }  // namespace memray::hooks
 
 namespace memray::intercept {
+
+
+namespace {
+bool should_ignore_stack() {
+    const int max_frames = 100;
+    void* addrlist[max_frames + 1];
+
+    // Retrieve current stack addresses
+    int addrlen = backtrace(addrlist, sizeof(addrlist) / sizeof(void*));
+
+    if (addrlen == 0) {
+        return false;
+    }
+
+    // Convert addresses into readable strings
+    char** symbollist = backtrace_symbols(addrlist, addrlen);
+
+    bool ignore = false;
+    // Print out the stack trace
+    for (int i = 0; i < addrlen; i++) {
+        std::string symbol(symbollist[i]);
+        // std::cout << symbol << std::endl;
+        if (symbol.find("PyEval_EvalFrameDefault") != std::string::npos) {
+            ignore = true;
+            break;
+        }
+    }
+
+    free(symbollist);
+    return ignore;
+}
+}
 
 void*
 pymalloc_malloc(void* ctx, size_t size) noexcept
@@ -271,13 +273,13 @@ mmap(void* addr, size_t length, int prot, int flags, int fd, off_t offset) noexc
 {
     assert(MEMRAY_ORIG(mmap));
 
-    bool should_ignore_stack = (addr == NULL || addr == nullptr || should_ignore_stack());
+    bool ignore = (addr == NULL || addr == nullptr || should_ignore_stack());
     void* ptr;
     {
         tracking_api::RecursionGuard guard;
         ptr = MEMRAY_ORIG(mmap)(addr, length, prot, flags, fd, offset);
     }
-    if (ptr != MAP_FAILED && !should_ignore_stack) {
+    if (ptr != MAP_FAILED && !ignore) {
         tracking_api::Tracker::trackAllocation(ptr, length, hooks::Allocator::MMAP);
     }
     return ptr;
@@ -289,13 +291,13 @@ mmap64(void* addr, size_t length, int prot, int flags, int fd, off64_t offset) n
 {
     assert(MEMRAY_ORIG(mmap64));
 
-    bool should_ignore_stack = (addr == NULL || addr == nullptr || should_ignore_stack());
+    bool ignore = (addr == NULL || addr == nullptr || should_ignore_stack());
     void* ptr;
     {
         tracking_api::RecursionGuard guard;
         ptr = MEMRAY_ORIG(mmap64)(addr, length, prot, flags, fd, offset);
     }
-    if (ptr != MAP_FAILED && !should_ignore_stack) {
+    if (ptr != MAP_FAILED && !ignore) {
         tracking_api::Tracker::trackAllocation(ptr, length, hooks::Allocator::MMAP);
     }
     return ptr;
