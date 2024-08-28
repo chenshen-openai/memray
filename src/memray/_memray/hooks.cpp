@@ -27,14 +27,19 @@ void should_ignore_stack() {
     // Convert addresses into readable strings
     char** symbollist = backtrace_symbols(addrlist, addrlen);
 
+    bool ignore = false;
     // Print out the stack trace
     for (int i = 0; i < addrlen; i++) {
-        std::cout << symbollist[i] << std::endl;
+        std::string symbol(symbollist[i]);
+        // std::cout << symbol << std::endl;
+        if (symbol.find("PyEval_EvalFrameDefault") != std::string::npos) {
+            ignore = true;
+            break;
+        }
     }
 
     free(symbollist);
-
-    return false;
+    return ignore;
 }
 }
 
