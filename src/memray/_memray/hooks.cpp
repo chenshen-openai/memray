@@ -112,8 +112,21 @@ ensureAllHooksAreValid()
 namespace memray::intercept {
 
 
+// MEMRAY_IGNORE_SYMBOL=cuda
+// MEMRAY_VERBOSE=1
 namespace {
 bool should_ignore_stack() {
+
+    static bool symbol_verbose = std::getenv("MEMRAY_SYMBOL_VERBOSE") != nullptr;
+    static bool ignore_verbose = std::getenv("MEMRAY_IGNORE_VERBOSE") != nullptr;
+    static std::string ignore_symbol = []() {
+        if (std::getenv("MEMRAY_IGNORE_SYMBOL") != nullptr) {
+            return std::string(std::getenv("MEMRAY_IGNORE_SYMBOL"));
+        }
+        return std::string("__MEMRAY_DO_NOT_FILTER___");
+    } ();
+
+
     const int max_frames = 100;
     void* addrlist[max_frames + 1];
 
@@ -131,8 +144,13 @@ bool should_ignore_stack() {
     // Print out the stack trace
     for (int i = 0; i < addrlen; i++) {
         std::string symbol(symbollist[i]);
-        // std::cout << symbol << std::endl;
-        if (symbol.find("PyEval_EvalFrameDefault") != std::string::npos) {
+        if (symbol_verbose) {
+            std::cout << symbol << std::endl;
+        }
+        if (symbol.find(ignore_symbol) != std::string::npos) {
+            if (ignore_verbose) {
+                std::cout << "===IGNORED===" << symbol << std::endl;
+            }
             ignore = true;
             break;
         }
@@ -273,7 +291,7 @@ mmap(void* addr, size_t length, int prot, int flags, int fd, off_t offset) noexc
 {
     assert(MEMRAY_ORIG(mmap));
 
-    bool ignore = (addr == NULL || addr == nullptr || should_ignore_stack());
+    bool ignore = (addr == NULL || addr == nullptr) && should_ignore_stack();
     void* ptr;
     {
         tracking_api::RecursionGuard guard;
@@ -291,7 +309,7 @@ mmap64(void* addr, size_t length, int prot, int flags, int fd, off64_t offset) n
 {
     assert(MEMRAY_ORIG(mmap64));
 
-    bool ignore = (addr == NULL || addr == nullptr || should_ignore_stack());
+    bool ignore = (addr == NULL || addr == nullptr) && should_ignore_stack();
     void* ptr;
     {
         tracking_api::RecursionGuard guard;
