@@ -134,6 +134,14 @@ bool should_ignore_stack(void* addr, size_t length) {
         return -1ll;
     } ();
 
+    static bool print_once = []() {
+        std::cout << "=== MEMRAY CONFIG ===" << std::endl;
+        std::cout << "memray print_allocation_symbol: " << symbol_verbose << std::endl;
+        std::cout << "memray print_ignored_allocation: " << ignore_verbose << std::endl;
+        std::cout << "memray ignore_symbol_prefix: " << ignore_symbol << std::endl;
+        std::cout << "memray ignore_large_allocation: " << ignore_large_alloc_size << std::endl;
+        return true;
+    } ();
 
     const int max_frames = 100;
     void* addrlist[max_frames + 1];
@@ -310,7 +318,7 @@ mmap(void* addr, size_t length, int prot, int flags, int fd, off_t offset) noexc
 {
     assert(MEMRAY_ORIG(mmap));
 
-    bool ignore = (addr == NULL || addr == nullptr) && should_ignore_stack(addr, length);
+    bool ignore = should_ignore_stack(addr, length);
     void* ptr;
     {
         tracking_api::RecursionGuard guard;
@@ -328,7 +336,7 @@ mmap64(void* addr, size_t length, int prot, int flags, int fd, off64_t offset) n
 {
     assert(MEMRAY_ORIG(mmap64));
 
-    bool ignore = (addr == NULL || addr == nullptr) && should_ignore_stack(addr, length);
+    bool ignore = should_ignore_stack(addr, length);
     void* ptr;
     {
         tracking_api::RecursionGuard guard;
