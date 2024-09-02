@@ -138,7 +138,7 @@ bool should_ignore_stack(void* addr, size_t length) {
         std::cout << "=== MEMRAY CONFIG ===" << std::endl;
         std::cout << "memray print_allocation_symbol: " << symbol_verbose << std::endl;
         std::cout << "memray print_ignored_allocation: " << ignore_verbose << std::endl;
-        std::cout << "memray ignore_symbol_prefix: " << ignore_symbol << std::endl;
+        std::cout << "memray ignore_symbol_pattern: " << ignore_symbol << std::endl;
         std::cout << "memray ignore_large_allocation: " << ignore_large_alloc_size << std::endl;
         return true;
     } ();
@@ -169,7 +169,7 @@ bool should_ignore_stack(void* addr, size_t length) {
         }
         if (symbol.find(ignore_symbol) != std::string::npos) {
             if (ignore_verbose) {
-                std::cout << "===IGNORED===" << symbol << std::endl;
+                std::cout << "===IGNORED=== Matching pattern: " << ignore_symbol << " ~ "<< symbol << std::endl;
             }
             ignore = true;
             break;
