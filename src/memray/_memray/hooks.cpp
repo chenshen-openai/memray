@@ -6,6 +6,7 @@
 #include <iostream>
 #include <exception>
 #include <cstdlib>
+#include <string>
 
 #include "hooks.h"
 #include "tracking_api.h"
@@ -114,6 +115,7 @@ namespace memray::intercept {
 
 // MEMRAY_IGNORE_SYMBOL=cuda
 // MEMRAY_VERBOSE=1
+// MEMRAY_IGNORE_LARGE_ALLOC=90000000000
 namespace {
 bool should_ignore_stack(void* addr, size_t length) {
 
@@ -124,6 +126,12 @@ bool should_ignore_stack(void* addr, size_t length) {
             return std::string(std::getenv("MEMRAY_IGNORE_SYMBOL"));
         }
         return std::string("__MEMRAY_DO_NOT_FILTER___");
+    } ();
+    static int64_t ignore_large_alloc_size = []() {
+        if (std::getenv("MEMRAY_IGNORE_LARGE_ALLOC") != nullptr) {
+            return std::stoll(std::string(std::getenv("MEMRAY_IGNORE_LARGE_ALLOC")));
+        }
+        return -1ll;
     } ();
 
 
@@ -158,6 +166,13 @@ bool should_ignore_stack(void* addr, size_t length) {
             ignore = true;
             break;
         }
+    }
+
+    if (ignore_large_alloc_size > 0 && length > static_cast<size_t>(ignore_large_alloc_size)) {
+        if (ignore_verbose) {
+            std::cout << "===IGNORED=== Large allocation: " << length << " >= " << ignore_large_alloc_size << std::endl;
+        }
+        ignore = true;
     }
 
     free(symbollist);
