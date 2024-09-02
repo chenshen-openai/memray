@@ -115,7 +115,7 @@ namespace memray::intercept {
 // MEMRAY_IGNORE_SYMBOL=cuda
 // MEMRAY_VERBOSE=1
 namespace {
-bool should_ignore_stack() {
+bool should_ignore_stack(void* addr, size_t length) {
 
     static bool symbol_verbose = std::getenv("MEMRAY_SYMBOL_VERBOSE") != nullptr;
     static bool ignore_verbose = std::getenv("MEMRAY_IGNORE_VERBOSE") != nullptr;
@@ -142,6 +142,10 @@ bool should_ignore_stack() {
 
     bool ignore = false;
     // Print out the stack trace
+    if (symbol_verbose) {
+        std::cout << "=== Allocation Info ===" << std::endl;
+        std::cout << "=== addr: " << addr << " size: " << length << " ===" << std::endl;
+    }
     for (int i = 0; i < addrlen; i++) {
         std::string symbol(symbollist[i]);
         if (symbol_verbose) {
@@ -291,7 +295,7 @@ mmap(void* addr, size_t length, int prot, int flags, int fd, off_t offset) noexc
 {
     assert(MEMRAY_ORIG(mmap));
 
-    bool ignore = (addr == NULL || addr == nullptr) && should_ignore_stack();
+    bool ignore = (addr == NULL || addr == nullptr) && should_ignore_stack(addr, length);
     void* ptr;
     {
         tracking_api::RecursionGuard guard;
@@ -309,7 +313,7 @@ mmap64(void* addr, size_t length, int prot, int flags, int fd, off64_t offset) n
 {
     assert(MEMRAY_ORIG(mmap64));
 
-    bool ignore = (addr == NULL || addr == nullptr) && should_ignore_stack();
+    bool ignore = (addr == NULL || addr == nullptr) && should_ignore_stack(addr, length);
     void* ptr;
     {
         tracking_api::RecursionGuard guard;
